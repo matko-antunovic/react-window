@@ -16,9 +16,9 @@ type Layout = 'horizontal' | 'vertical';
 
 type RenderComponentProps<T> = {|
   data: T,
-  index: number,
-  isScrolling?: boolean,
-  style: Object,
+    index: number,
+      isScrolling ?: boolean,
+      style: Object,
 |};
 type RenderComponent<T> = React$ComponentType<$Shape<RenderComponentProps<T>>>;
 
@@ -41,51 +41,52 @@ type ItemStyleCache = { [index: number]: Object };
 
 type OuterProps = {|
   children: React$Node,
-  className: string | void,
-  onScroll: ScrollEvent => void,
-  style: {
-    [string]: mixed,
+    className: string | void,
+      onScroll: ScrollEvent => void,
+        style: {
+  [string]: mixed,
   },
 |};
 
 type InnerProps = {|
   children: React$Node,
-  style: {
-    [string]: mixed,
+    style: {
+  [string]: mixed,
   },
 |};
 
 export type Props<T> = {|
-  children: RenderComponent<T>,
-  className?: string,
-  direction: Direction,
-  height: number | string,
-  initialScrollOffset?: number,
-  innerRef?: any,
-  innerElementType?: string | React$AbstractComponent<InnerProps, any>,
-  innerTagName?: string, // deprecated
-  itemCount: number,
-  itemData: T,
-  itemKey?: (index: number, data: T) => any,
-  itemSize: itemSize,
-  layout: Layout,
-  onItemsRendered?: onItemsRenderedCallback,
-  onScroll?: onScrollCallback,
-  outerRef?: any,
-  outerElementType?: string | React$AbstractComponent<OuterProps, any>,
-  outerTagName?: string, // deprecated
-  overscanCount: number,
-  style?: Object,
-  useIsScrolling: boolean,
-  width: number | string,
+  children: RenderComponent < T >,
+    className ?: string,
+    direction: Direction,
+      height: number | string,
+        initialScrollOffset ?: number,
+        innerRef ?: any,
+        innerElementType ?: string | React$AbstractComponent < InnerProps, any >,
+        innerTagName ?: string, // deprecated
+        itemCount: number,
+          itemData: T,
+            itemKey ?: (index: number, data: T) => any,
+            itemSize: itemSize,
+              layout: Layout,
+                onItemsRendered ?: onItemsRenderedCallback,
+                onScroll ?: onScrollCallback,
+                outerRef ?: any,
+                outerElementType ?: string | React$AbstractComponent < OuterProps, any >,
+                outerTagName ?: string, // deprecated
+                overscanCount: number,
+                  trailingOverscanCount: number,
+                    style ?: Object,
+                    useIsScrolling: boolean,
+                      width: number | string,
 |};
 
 type State = {|
   instance: any,
-  isScrolling: boolean,
-  scrollDirection: ScrollDirection,
-  scrollOffset: number,
-  scrollUpdateWasRequested: boolean,
+    isScrolling: boolean,
+      scrollDirection: ScrollDirection,
+        scrollOffset: number,
+          scrollUpdateWasRequested: boolean,
 |};
 
 type GetItemOffset = (
@@ -166,6 +167,7 @@ export default function createListComponent({
       itemData: undefined,
       layout: 'vertical',
       overscanCount: 2,
+      trailingOverscanCount: number,
       useIsScrolling: false,
     };
 
@@ -410,246 +412,253 @@ export default function createListComponent({
         })
     );
 
-    _callOnScroll: (
+  _callOnScroll: (
+    scrollDirection: ScrollDirection,
+    scrollOffset: number,
+    scrollUpdateWasRequested: boolean
+  ) => void;
+  _callOnScroll = memoizeOne(
+    (
       scrollDirection: ScrollDirection,
       scrollOffset: number,
       scrollUpdateWasRequested: boolean
-    ) => void;
-    _callOnScroll = memoizeOne(
-      (
-        scrollDirection: ScrollDirection,
-        scrollOffset: number,
-        scrollUpdateWasRequested: boolean
-      ) =>
-        ((this.props.onScroll: any): onScrollCallback)({
-          scrollDirection,
-          scrollOffset,
-          scrollUpdateWasRequested,
-        })
+    ) =>
+      ((this.props.onScroll: any): onScrollCallback) ({
+        scrollDirection,
+        scrollOffset,
+        scrollUpdateWasRequested,
+      })
     );
 
-    _callPropsCallbacks() {
-      if (typeof this.props.onItemsRendered === 'function') {
-        const { itemCount } = this.props;
-        if (itemCount > 0) {
-          const [
-            overscanStartIndex,
-            overscanStopIndex,
-            visibleStartIndex,
-            visibleStopIndex,
-          ] = this._getRangeToRender();
-          this._callOnItemsRendered(
-            overscanStartIndex,
-            overscanStopIndex,
-            visibleStartIndex,
-            visibleStopIndex
-          );
-        }
-      }
-
-      if (typeof this.props.onScroll === 'function') {
-        const {
-          scrollDirection,
-          scrollOffset,
-          scrollUpdateWasRequested,
-        } = this.state;
-        this._callOnScroll(
-          scrollDirection,
-          scrollOffset,
-          scrollUpdateWasRequested
+  _callPropsCallbacks() {
+    if (typeof this.props.onItemsRendered === 'function') {
+      const { itemCount } = this.props;
+      if (itemCount > 0) {
+        const [
+          overscanStartIndex,
+          overscanStopIndex,
+          visibleStartIndex,
+          visibleStopIndex,
+        ] = this._getRangeToRender();
+        this._callOnItemsRendered(
+          overscanStartIndex,
+          overscanStopIndex,
+          visibleStartIndex,
+          visibleStopIndex
         );
       }
     }
 
-    // Lazily create and cache item styles while scrolling,
-    // So that pure component sCU will prevent re-renders.
-    // We maintain this cache, and pass a style prop rather than index,
-    // So that List can clear cached styles and force item re-render if necessary.
-    _getItemStyle: (index: number) => Object;
-    _getItemStyle = (index: number): Object => {
-      const { direction, itemSize, layout } = this.props;
-
-      const itemStyleCache = this._getItemStyleCache(
-        shouldResetStyleCacheOnItemSizeChange && itemSize,
-        shouldResetStyleCacheOnItemSizeChange && layout,
-        shouldResetStyleCacheOnItemSizeChange && direction
-      );
-
-      let style;
-      if (itemStyleCache.hasOwnProperty(index)) {
-        style = itemStyleCache[index];
-      } else {
-        const offset = getItemOffset(this.props, index, this._instanceProps);
-        const size = getItemSize(this.props, index, this._instanceProps);
-
-        // TODO Deprecate direction "horizontal"
-        const isHorizontal =
-          direction === 'horizontal' || layout === 'horizontal';
-
-        const isRtl = direction === 'rtl';
-        const offsetHorizontal = isHorizontal ? offset : 0;
-        itemStyleCache[index] = style = {
-          position: 'absolute',
-          left: isRtl ? undefined : offsetHorizontal,
-          right: isRtl ? offsetHorizontal : undefined,
-          top: !isHorizontal ? offset : 0,
-          height: !isHorizontal ? size : '100%',
-          width: isHorizontal ? size : '100%',
-        };
-      }
-
-      return style;
-    };
-
-    _getItemStyleCache: (_: any, __: any, ___: any) => ItemStyleCache;
-    _getItemStyleCache = memoizeOne((_: any, __: any, ___: any) => ({}));
-
-    _getRangeToRender(): [number, number, number, number] {
-      const { itemCount, overscanCount } = this.props;
-      const { isScrolling, scrollDirection, scrollOffset } = this.state;
-
-      if (itemCount === 0) {
-        return [0, 0, 0, 0];
-      }
-
-      const startIndex = getStartIndexForOffset(
-        this.props,
+    if (typeof this.props.onScroll === 'function') {
+      const {
+        scrollDirection,
         scrollOffset,
-        this._instanceProps
-      );
-      const stopIndex = getStopIndexForStartIndex(
-        this.props,
-        startIndex,
+        scrollUpdateWasRequested,
+      } = this.state;
+      this._callOnScroll(
+        scrollDirection,
         scrollOffset,
-        this._instanceProps
+        scrollUpdateWasRequested
       );
+    }
+  }
 
-      // Overscan by one item in each direction so that tab/focus works.
-      // If there isn't at least one extra item, tab loops back around.
-      const overscanBackward =
-        !isScrolling || scrollDirection === 'backward'
-          ? Math.max(1, overscanCount)
-          : 1;
-      const overscanForward =
-        !isScrolling || scrollDirection === 'forward'
-          ? Math.max(1, overscanCount)
-          : 1;
+  // Lazily create and cache item styles while scrolling,
+  // So that pure component sCU will prevent re-renders.
+  // We maintain this cache, and pass a style prop rather than index,
+  // So that List can clear cached styles and force item re-render if necessary.
+  _getItemStyle: (index: number) => Object;
+  _getItemStyle = (index: number): Object => {
+    const { direction, itemSize, layout } = this.props;
 
-      return [
-        Math.max(0, startIndex - overscanBackward),
-        Math.max(0, Math.min(itemCount - 1, stopIndex + overscanForward)),
-        startIndex,
-        stopIndex,
-      ];
+    const itemStyleCache = this._getItemStyleCache(
+      shouldResetStyleCacheOnItemSizeChange && itemSize,
+      shouldResetStyleCacheOnItemSizeChange && layout,
+      shouldResetStyleCacheOnItemSizeChange && direction
+    );
+
+    let style;
+    if (itemStyleCache.hasOwnProperty(index)) {
+      style = itemStyleCache[index];
+    } else {
+      const offset = getItemOffset(this.props, index, this._instanceProps);
+      const size = getItemSize(this.props, index, this._instanceProps);
+
+      // TODO Deprecate direction "horizontal"
+      const isHorizontal =
+        direction === 'horizontal' || layout === 'horizontal';
+
+      const isRtl = direction === 'rtl';
+      const offsetHorizontal = isHorizontal ? offset : 0;
+      itemStyleCache[index] = style = {
+        position: 'absolute',
+        left: isRtl ? undefined : offsetHorizontal,
+        right: isRtl ? offsetHorizontal : undefined,
+        top: !isHorizontal ? offset : 0,
+        height: !isHorizontal ? size : '100%',
+        width: isHorizontal ? size : '100%',
+      };
     }
 
-    _onScrollHorizontal = (event: ScrollEvent): void => {
-      const { clientWidth, scrollLeft, scrollWidth } = event.currentTarget;
-      this.setState(prevState => {
-        if (prevState.scrollOffset === scrollLeft) {
-          // Scroll position may have been updated by cDM/cDU,
-          // In which case we don't need to trigger another render,
-          // And we don't want to update state.isScrolling.
-          return null;
-        }
-
-        const { direction } = this.props;
-
-        let scrollOffset = scrollLeft;
-        if (direction === 'rtl') {
-          // TRICKY According to the spec, scrollLeft should be negative for RTL aligned elements.
-          // This is not the case for all browsers though (e.g. Chrome reports values as positive, measured relative to the left).
-          // It's also easier for this component if we convert offsets to the same format as they would be in for ltr.
-          // So the simplest solution is to determine which browser behavior we're dealing with, and convert based on it.
-          switch (getRTLOffsetType()) {
-            case 'negative':
-              scrollOffset = -scrollLeft;
-              break;
-            case 'positive-descending':
-              scrollOffset = scrollWidth - clientWidth - scrollLeft;
-              break;
-          }
-        }
-
-        // Prevent Safari's elastic scrolling from causing visual shaking when scrolling past bounds.
-        scrollOffset = Math.max(
-          0,
-          Math.min(scrollOffset, scrollWidth - clientWidth)
-        );
-
-        return {
-          isScrolling: true,
-          scrollDirection:
-            prevState.scrollOffset < scrollLeft ? 'forward' : 'backward',
-          scrollOffset,
-          scrollUpdateWasRequested: false,
-        };
-      }, this._resetIsScrollingDebounced);
-    };
-
-    _onScrollVertical = (event: ScrollEvent): void => {
-      const { clientHeight, scrollHeight, scrollTop } = event.currentTarget;
-      this.setState(prevState => {
-        if (prevState.scrollOffset === scrollTop) {
-          // Scroll position may have been updated by cDM/cDU,
-          // In which case we don't need to trigger another render,
-          // And we don't want to update state.isScrolling.
-          return null;
-        }
-
-        // Prevent Safari's elastic scrolling from causing visual shaking when scrolling past bounds.
-        const scrollOffset = Math.max(
-          0,
-          Math.min(scrollTop, scrollHeight - clientHeight)
-        );
-
-        return {
-          isScrolling: true,
-          scrollDirection:
-            prevState.scrollOffset < scrollOffset ? 'forward' : 'backward',
-          scrollOffset,
-          scrollUpdateWasRequested: false,
-        };
-      }, this._resetIsScrollingDebounced);
-    };
-
-    _outerRefSetter = (ref: any): void => {
-      const { outerRef } = this.props;
-
-      this._outerRef = ((ref: any): HTMLDivElement);
-
-      if (typeof outerRef === 'function') {
-        outerRef(ref);
-      } else if (
-        outerRef != null &&
-        typeof outerRef === 'object' &&
-        outerRef.hasOwnProperty('current')
-      ) {
-        outerRef.current = ref;
-      }
-    };
-
-    _resetIsScrollingDebounced = () => {
-      if (this._resetIsScrollingTimeoutId !== null) {
-        cancelTimeout(this._resetIsScrollingTimeoutId);
-      }
-
-      this._resetIsScrollingTimeoutId = requestTimeout(
-        this._resetIsScrolling,
-        IS_SCROLLING_DEBOUNCE_INTERVAL
-      );
-    };
-
-    _resetIsScrolling = () => {
-      this._resetIsScrollingTimeoutId = null;
-
-      this.setState({ isScrolling: false }, () => {
-        // Clear style cache after state update has been committed.
-        // This way we don't break pure sCU for items that don't use isScrolling param.
-        this._getItemStyleCache(-1, null);
-      });
-    };
+    return style;
   };
+
+  _getItemStyleCache: (_: any, __: any, ___: any) => ItemStyleCache;
+  _getItemStyleCache = memoizeOne((_: any, __: any, ___: any) => ({}));
+
+  _getRangeToRender(): [number, number, number, number] {
+    const { itemCount, overscanCount, trailingOverscanCount } = this.props;
+    const { isScrolling, scrollDirection, scrollOffset } = this.state;
+
+    if (itemCount === 0) {
+      return [0, 0, 0, 0];
+    }
+
+    const startIndex = getStartIndexForOffset(
+      this.props,
+      scrollOffset,
+      this._instanceProps
+    );
+    const stopIndex = getStopIndexForStartIndex(
+      this.props,
+      startIndex,
+      scrollOffset,
+      this._instanceProps
+    );
+
+    // Do not allow trailing overscan larger than the forward overscan
+    // to avoid components being discarded when scrolling stops.
+    const trailingOverscanCountToUse = Math.min(
+      overscanCount,
+      trailingOverscanCount
+    );
+
+    // Overscan by one item in each direction so that tab/focus works.
+    // If there isn't at least one extra item, tab loops back around.
+    const overscanBackward =
+      !isScrolling || scrollDirection === 'backward'
+        ? Math.max(1, overscanCount)
+        : Math.max(1, trailingOverscanCountToUse);;
+    const overscanForward =
+      !isScrolling || scrollDirection === 'forward'
+        ? Math.max(1, overscanCount)
+        : Math.max(1, trailingOverscanCountToUse);;
+
+    return [
+      Math.max(0, startIndex - overscanBackward),
+      Math.max(0, Math.min(itemCount - 1, stopIndex + overscanForward)),
+      startIndex,
+      stopIndex,
+    ];
+  }
+
+  _onScrollHorizontal = (event: ScrollEvent): void => {
+    const { clientWidth, scrollLeft, scrollWidth } = event.currentTarget;
+    this.setState(prevState => {
+      if (prevState.scrollOffset === scrollLeft) {
+        // Scroll position may have been updated by cDM/cDU,
+        // In which case we don't need to trigger another render,
+        // And we don't want to update state.isScrolling.
+        return null;
+      }
+
+      const { direction } = this.props;
+
+      let scrollOffset = scrollLeft;
+      if (direction === 'rtl') {
+        // TRICKY According to the spec, scrollLeft should be negative for RTL aligned elements.
+        // This is not the case for all browsers though (e.g. Chrome reports values as positive, measured relative to the left).
+        // It's also easier for this component if we convert offsets to the same format as they would be in for ltr.
+        // So the simplest solution is to determine which browser behavior we're dealing with, and convert based on it.
+        switch (getRTLOffsetType()) {
+          case 'negative':
+            scrollOffset = -scrollLeft;
+            break;
+          case 'positive-descending':
+            scrollOffset = scrollWidth - clientWidth - scrollLeft;
+            break;
+        }
+      }
+
+      // Prevent Safari's elastic scrolling from causing visual shaking when scrolling past bounds.
+      scrollOffset = Math.max(
+        0,
+        Math.min(scrollOffset, scrollWidth - clientWidth)
+      );
+
+      return {
+        isScrolling: true,
+        scrollDirection:
+          prevState.scrollOffset < scrollLeft ? 'forward' : 'backward',
+        scrollOffset,
+        scrollUpdateWasRequested: false,
+      };
+    }, this._resetIsScrollingDebounced);
+  };
+
+  _onScrollVertical = (event: ScrollEvent): void => {
+    const { clientHeight, scrollHeight, scrollTop } = event.currentTarget;
+    this.setState(prevState => {
+      if (prevState.scrollOffset === scrollTop) {
+        // Scroll position may have been updated by cDM/cDU,
+        // In which case we don't need to trigger another render,
+        // And we don't want to update state.isScrolling.
+        return null;
+      }
+
+      // Prevent Safari's elastic scrolling from causing visual shaking when scrolling past bounds.
+      const scrollOffset = Math.max(
+        0,
+        Math.min(scrollTop, scrollHeight - clientHeight)
+      );
+
+      return {
+        isScrolling: true,
+        scrollDirection:
+          prevState.scrollOffset < scrollOffset ? 'forward' : 'backward',
+        scrollOffset,
+        scrollUpdateWasRequested: false,
+      };
+    }, this._resetIsScrollingDebounced);
+  };
+
+  _outerRefSetter = (ref: any): void => {
+    const { outerRef } = this.props;
+
+    this._outerRef = ((ref: any): HTMLDivElement);
+
+    if (typeof outerRef === 'function') {
+      outerRef(ref);
+    } else if (
+      outerRef != null &&
+      typeof outerRef === 'object' &&
+      outerRef.hasOwnProperty('current')
+    ) {
+      outerRef.current = ref;
+    }
+  };
+
+  _resetIsScrollingDebounced = () => {
+    if (this._resetIsScrollingTimeoutId !== null) {
+      cancelTimeout(this._resetIsScrollingTimeoutId);
+    }
+
+    this._resetIsScrollingTimeoutId = requestTimeout(
+      this._resetIsScrolling,
+      IS_SCROLLING_DEBOUNCE_INTERVAL
+    );
+  };
+
+  _resetIsScrolling = () => {
+    this._resetIsScrollingTimeoutId = null;
+
+    this.setState({ isScrolling: false }, () => {
+      // Clear style cache after state update has been committed.
+      // This way we don't break pure sCU for items that don't use isScrolling param.
+      this._getItemStyleCache(-1, null);
+    });
+  };
+};
 }
 
 // NOTE: I considered further wrapping individual items with a pure ListItem component.
@@ -676,7 +685,7 @@ const validateSharedProps = (
         devWarningsTagName.add(instance);
         console.warn(
           'The innerTagName and outerTagName props have been deprecated. ' +
-            'Please use the innerElementType and outerElementType props instead.'
+          'Please use the innerElementType and outerElementType props instead.'
         );
       }
     }
@@ -691,7 +700,7 @@ const validateSharedProps = (
           devWarningsDirection.add(instance);
           console.warn(
             'The direction prop should be either "ltr" (default) or "rtl". ' +
-              'Please use the layout prop to specify "vertical" (default) or "horizontal" orientation.'
+            'Please use the layout prop to specify "vertical" (default) or "horizontal" orientation.'
           );
         }
         break;
@@ -702,8 +711,8 @@ const validateSharedProps = (
       default:
         throw Error(
           'An invalid "direction" prop has been specified. ' +
-            'Value should be either "ltr" or "rtl". ' +
-            `"${direction}" was specified.`
+          'Value should be either "ltr" or "rtl". ' +
+          `"${direction}" was specified.`
         );
     }
 
@@ -715,30 +724,30 @@ const validateSharedProps = (
       default:
         throw Error(
           'An invalid "layout" prop has been specified. ' +
-            'Value should be either "horizontal" or "vertical". ' +
-            `"${layout}" was specified.`
+          'Value should be either "horizontal" or "vertical". ' +
+          `"${layout}" was specified.`
         );
     }
 
     if (children == null) {
       throw Error(
         'An invalid "children" prop has been specified. ' +
-          'Value should be a React component. ' +
-          `"${children === null ? 'null' : typeof children}" was specified.`
+        'Value should be a React component. ' +
+        `"${children === null ? 'null' : typeof children}" was specified.`
       );
     }
 
     if (isHorizontal && typeof width !== 'number') {
       throw Error(
         'An invalid "width" prop has been specified. ' +
-          'Horizontal lists must specify a number for width. ' +
-          `"${width === null ? 'null' : typeof width}" was specified.`
+        'Horizontal lists must specify a number for width. ' +
+        `"${width === null ? 'null' : typeof width}" was specified.`
       );
     } else if (!isHorizontal && typeof height !== 'number') {
       throw Error(
         'An invalid "height" prop has been specified. ' +
-          'Vertical lists must specify a number for height. ' +
-          `"${height === null ? 'null' : typeof height}" was specified.`
+        'Vertical lists must specify a number for height. ' +
+        `"${height === null ? 'null' : typeof height}" was specified.`
       );
     }
   }
